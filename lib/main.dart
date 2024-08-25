@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:otzaria_search_engine/src/rust/api/simple.dart';
+import 'package:otzaria_search_engine/src/rust/api/search_engine.dart';
 import 'package:otzaria_search_engine/src/rust/frb_generated.dart';
 
 Future<void> main() async {

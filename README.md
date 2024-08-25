@@ -8,3 +8,5 @@ tantivy is a lucene-alike inedxing and full text search engine.
 you should install rust, dart and flutter. 
 then install flutter_rust_bridge.
 then you just run the program as it a regular flutter project. the bridge will do the heavy lifting for you.
+
+contributing will be most appreciated.

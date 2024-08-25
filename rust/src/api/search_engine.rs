@@ -32,7 +32,7 @@ impl SearchEngine {
         let index = Index::create_in_dir(path, schema.clone());
         let index = index.expect("Failed to create index").clone();
         let index_reader = index.reader().expect("Failed to create index reader");
-        let mut index_writer = index
+        let index_writer = index
             .writer(50_000_000)
             .expect("Failed to create index writer");
 
