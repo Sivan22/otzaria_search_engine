@@ -89,10 +89,11 @@ abstract class RustLibApi extends BaseApi {
   Future<SearchEngine> crateApiSearchEngineSearchEngineNew(
       {required String path});
 
-  Future<String> crateApiSearchEngineSearchEngineSearch(
+  Future<List<String>> crateApiSearchEngineSearchEngineSearch(
       {required SearchEngine that,
       required String query,
-      required List<String> books});
+      required List<String> books,
+      required int limit});
 
   String crateApiSearchEngineTestBindings({required String name});
 
@@ -188,10 +189,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateApiSearchEngineSearchEngineSearch(
+  Future<List<String>> crateApiSearchEngineSearchEngineSearch(
       {required SearchEngine that,
       required String query,
-      required List<String> books}) {
+      required List<String> books,
+      required int limit}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
@@ -199,15 +201,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that, serializer);
         sse_encode_String(query, serializer);
         sse_encode_list_String(books, serializer);
+        sse_encode_u_32(limit, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
             funcId: 3, port: port_);
       },
       codec: SseCodec(
-        decodeSuccessData: sse_decode_String,
-        decodeErrorData: null,
+        decodeSuccessData: sse_decode_list_String,
+        decodeErrorData: sse_decode_AnyhowException,
       ),
       constMeta: kCrateApiSearchEngineSearchEngineSearchConstMeta,
-      argValues: [that, query, books],
+      argValues: [that, query, books, limit],
       apiImpl: this,
     ));
   }
@@ -215,7 +218,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiSearchEngineSearchEngineSearchConstMeta =>
       const TaskConstMeta(
         debugName: "SearchEngine_search",
-        argNames: ["that", "query", "books"],
+        argNames: ["that", "query", "books", "limit"],
       );
 
   @override
@@ -302,6 +305,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -392,6 +401,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
   }
 
   @protected
@@ -490,6 +505,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
   void sse_encode_u_64(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putBigUint64(self);
@@ -554,7 +575,10 @@ class SearchEngineImpl extends RustOpaque implements SearchEngine {
           isPdf: isPdf,
           filePath: filePath);
 
-  Future<String> search({required String query, required List<String> books}) =>
+  Future<List<String>> search(
+          {required String query,
+          required List<String> books,
+          required int limit}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineSearch(
-          that: this, query: query, books: books);
+          that: this, query: query, books: books, limit: limit);
 }

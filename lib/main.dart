@@ -4,16 +4,22 @@ import 'package:otzaria_search_engine/src/rust/frb_generated.dart';
 
 Future<void> main() async {
   await RustLib.init();
+  print('hello');
   final searchEngine =
       await SearchEngine.newInstance(path: "C:\\dev\\tantivy\\playground");
   print(searchEngine.runtimeType);
   await searchEngine.addDocument(
       id: BigInt.from(1),
-      title: 'חומש',
+      title: 'שמות חומש',
       text: 'בראשית ברא',
       segment: BigInt.from(0),
       isPdf: false,
       filePath: '');
+  print(await searchEngine.search(
+    query: 'ברא',
+    books: ['שמות חומש'],
+    limit: 10,
+  ));
   //runApp(const MyApp());
 }
 

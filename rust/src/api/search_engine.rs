@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tantivy::collector::TopDocs;
 use tantivy::directory::MmapDirectory;
-use tantivy::query::{self, BooleanQuery, Occur, Query, QueryParser, TermQuery};
-use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
+use tantivy::query::{self, BooleanQuery, Occur, Query, QueryParser, TermQuery, TermSetQuery};
+use tantivy::{doc, tokenizer, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
 use tantivy::{schema::*, Directory};
 
 pub struct SearchEngine {
@@ -28,7 +28,14 @@ impl SearchEngine {
         let schema_builder = Schema::builder();
         let mut schema_builder = Schema::builder();
         let text = schema_builder.add_text_field("text", TEXT | STORED);
-        let title = schema_builder.add_text_field("title", TEXT);
+        let title = schema_builder.add_text_field(
+            "title",
+            TextOptions::default().set_indexing_options(
+                TextFieldIndexing::default()
+                    .set_tokenizer("raw")
+                    .set_fieldnorms(false),
+            ),
+        );
         let id = schema_builder.add_u64_field("id", STORED);
         let segment = schema_builder.add_u64_field("segment", STORED);
         let isPdf = schema_builder.add_bool_field("isPdf", STORED);
@@ -89,24 +96,15 @@ impl SearchEngine {
             let title_field = schema.get_field("title").unwrap();
 
             // Create the main text search query
-            let text_query = TermQuery::new(
-                Term::from_field_text(text_field, search_term),
-                IndexRecordOption::WithFreqsAndPositions,
-            );
+            let text_query = QueryParser::for_index(&index, vec![text_field]);
+            let text_query = text_query.parse_query(search_term).unwrap();
 
-            // Create a boolean query for the book titles
-            let mut title_queries = Vec::new();
-            for book_title in book_titles {
-                let title_query = TermQuery::new(
-                    Term::from_field_text(title_field, book_title),
-                    IndexRecordOption::Basic,
-                );
-                title_queries.push((
-                    Occur::Should,
-                    Box::new(title_query) as Box<dyn tantivy::query::Query>,
-                ));
-            }
-            let title_filter = BooleanQuery::new(title_queries);
+            // Create a TermSetQuery for exact matching of book titles
+            let title_terms: Vec<Term> = book_titles
+                .iter()
+                .map(|title| Term::from_field_text(title_field, title))
+                .collect();
+            let title_filter = TermSetQuery::new(title_terms);
 
             // Combine the text search and title filter
             let mut bool_query = BooleanQuery::new(vec![
