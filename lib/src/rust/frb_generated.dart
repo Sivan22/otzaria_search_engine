@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.3.0';
 
   @override
-  int get rustContentHash => 371766336;
+  int get rustContentHash => -413561937;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -77,12 +77,14 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<void> crateApiSearchEngineSearchEngineIndexText(
+  Future<void> crateApiSearchEngineSearchEngineAddDocument(
       {required SearchEngine that,
       required BigInt id,
       required String title,
       required String text,
-      required BigInt line});
+      required BigInt segment,
+      required bool isPdf,
+      required String filePath});
 
   Future<SearchEngine> crateApiSearchEngineSearchEngineNew(
       {required String path});
@@ -112,12 +114,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<void> crateApiSearchEngineSearchEngineIndexText(
+  Future<void> crateApiSearchEngineSearchEngineAddDocument(
       {required SearchEngine that,
       required BigInt id,
       required String title,
       required String text,
-      required BigInt line}) {
+      required BigInt segment,
+      required bool isPdf,
+      required String filePath}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
@@ -126,7 +130,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_u_64(id, serializer);
         sse_encode_String(title, serializer);
         sse_encode_String(text, serializer);
-        sse_encode_u_64(line, serializer);
+        sse_encode_u_64(segment, serializer);
+        sse_encode_bool(isPdf, serializer);
+        sse_encode_String(filePath, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
             funcId: 1, port: port_);
       },
@@ -134,16 +140,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: sse_decode_AnyhowException,
       ),
-      constMeta: kCrateApiSearchEngineSearchEngineIndexTextConstMeta,
-      argValues: [that, id, title, text, line],
+      constMeta: kCrateApiSearchEngineSearchEngineAddDocumentConstMeta,
+      argValues: [that, id, title, text, segment, isPdf, filePath],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta get kCrateApiSearchEngineSearchEngineIndexTextConstMeta =>
+  TaskConstMeta get kCrateApiSearchEngineSearchEngineAddDocumentConstMeta =>
       const TaskConstMeta(
-        debugName: "SearchEngine_index_text",
-        argNames: ["that", "id", "title", "text", "line"],
+        debugName: "SearchEngine_add_document",
+        argNames: [
+          "that",
+          "id",
+          "title",
+          "text",
+          "segment",
+          "isPdf",
+          "filePath"
+        ],
       );
 
   @override
@@ -273,6 +287,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
@@ -350,6 +370,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -398,12 +424,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
-  }
-
-  @protected
   void sse_encode_AnyhowException(
       AnyhowException self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -444,6 +464,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
   }
 
   @protected
@@ -491,12 +517,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
   }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
-  }
 }
 
 @sealed
@@ -518,13 +538,21 @@ class SearchEngineImpl extends RustOpaque implements SearchEngine {
         RustLib.instance.api.rust_arc_decrement_strong_count_SearchEnginePtr,
   );
 
-  Future<void> indexText(
+  Future<void> addDocument(
           {required BigInt id,
           required String title,
           required String text,
-          required BigInt line}) =>
-      RustLib.instance.api.crateApiSearchEngineSearchEngineIndexText(
-          that: this, id: id, title: title, text: text, line: line);
+          required BigInt segment,
+          required bool isPdf,
+          required String filePath}) =>
+      RustLib.instance.api.crateApiSearchEngineSearchEngineAddDocument(
+          that: this,
+          id: id,
+          title: title,
+          text: text,
+          segment: segment,
+          isPdf: isPdf,
+          filePath: filePath);
 
   Future<String> search({required String query, required List<String> books}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineSearch(

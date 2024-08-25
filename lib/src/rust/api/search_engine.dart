@@ -11,11 +11,13 @@ String testBindings({required String name}) =>
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SearchEngine>>
 abstract class SearchEngine implements RustOpaqueInterface {
-  Future<void> indexText(
+  Future<void> addDocument(
       {required BigInt id,
       required String title,
       required String text,
-      required BigInt line});
+      required BigInt segment,
+      required bool isPdf,
+      required String filePath});
 
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
   static Future<SearchEngine> newInstance({required String path}) =>

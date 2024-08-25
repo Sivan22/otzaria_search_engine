@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.3.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 371766336;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -413561937;
 
 // Section: executor
 
@@ -46,7 +46,7 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
-fn wire__crate__api__search_engine__SearchEngine_index_text_impl(
+fn wire__crate__api__search_engine__SearchEngine_add_document_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -54,7 +54,7 @@ fn wire__crate__api__search_engine__SearchEngine_index_text_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "SearchEngine_index_text",
+            debug_name: "SearchEngine_add_document",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -71,10 +71,12 @@ fn wire__crate__api__search_engine__SearchEngine_index_text_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SearchEngine>,
             >>::sse_decode(&mut deserializer);
-            let api_id = <u64>::sse_decode(&mut deserializer);
-            let api_title = <String>::sse_decode(&mut deserializer);
-            let api_text = <String>::sse_decode(&mut deserializer);
-            let api_line = <u64>::sse_decode(&mut deserializer);
+            let api__id = <u64>::sse_decode(&mut deserializer);
+            let api__title = <String>::sse_decode(&mut deserializer);
+            let api__text = <String>::sse_decode(&mut deserializer);
+            let api__segment = <u64>::sse_decode(&mut deserializer);
+            let api__isPdf = <bool>::sse_decode(&mut deserializer);
+            let api__filePath = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
@@ -93,12 +95,14 @@ fn wire__crate__api__search_engine__SearchEngine_index_text_impl(
                             }
                         }
                         let mut api_that_guard = api_that_guard.unwrap();
-                        let output_ok = crate::api::search_engine::SearchEngine::index_text(
+                        let output_ok = crate::api::search_engine::SearchEngine::add_document(
                             &mut *api_that_guard,
-                            api_id,
-                            &api_title,
-                            &api_text,
-                            api_line,
+                            api__id,
+                            &api__title,
+                            &api__text,
+                            api__segment,
+                            api__isPdf,
+                            &api__filePath,
                         )?;
                         Ok(output_ok)
                     })(),
@@ -274,6 +278,13 @@ impl SseDecode for String {
     }
 }
 
+impl SseDecode for bool {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u8().unwrap() != 0
+    }
+}
+
 impl SseDecode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -331,13 +342,6 @@ impl SseDecode for i32 {
     }
 }
 
-impl SseDecode for bool {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_u8().unwrap() != 0
-    }
-}
-
 fn pde_ffi_dispatcher_primary_impl(
     func_id: i32,
     port: flutter_rust_bridge::for_generated::MessagePort,
@@ -347,7 +351,7 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__search_engine__SearchEngine_index_text_impl(
+        1 => wire__crate__api__search_engine__SearchEngine_add_document_impl(
             port,
             ptr,
             rust_vec_len,
@@ -431,6 +435,13 @@ impl SseEncode for String {
     }
 }
 
+impl SseEncode for bool {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u8(self as _).unwrap();
+    }
+}
+
 impl SseEncode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -484,13 +495,6 @@ impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_i32::<NativeEndian>(self).unwrap();
-    }
-}
-
-impl SseEncode for bool {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer.cursor.write_u8(self as _).unwrap();
     }
 }
 

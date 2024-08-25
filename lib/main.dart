@@ -4,7 +4,17 @@ import 'package:otzaria_search_engine/src/rust/frb_generated.dart';
 
 Future<void> main() async {
   await RustLib.init();
-  runApp(const MyApp());
+  final searchEngine =
+      await SearchEngine.newInstance(path: "C:\\dev\\tantivy\\playground");
+  print(searchEngine.runtimeType);
+  await searchEngine.addDocument(
+      id: BigInt.from(1),
+      title: 'חומש',
+      text: 'בראשית ברא',
+      segment: BigInt.from(0),
+      isPdf: false,
+      filePath: '');
+  //runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
