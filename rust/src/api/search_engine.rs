@@ -32,7 +32,7 @@ impl SearchEngine {
         let isPdf = schema_builder.add_bool_field("isPdf", STORED);
         let file_path = schema_builder.add_text_field("filePath", TEXT | STORED);
         let schema = schema_builder.build();
-        let index = Index::create_in_dir(path, schema.clone());
+        let index = Index::open_or_create(path, schema.clone());
         let index = index.expect("Failed to create index").clone();
         let index_reader = index.reader().expect("Failed to create index reader");
         let index_writer = index
