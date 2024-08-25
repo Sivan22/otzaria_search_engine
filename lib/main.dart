@@ -14,10 +14,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('flutter_rust_bridge quickstart')),
+        appBar: AppBar(title: const Text('otzaria search engine playground')),
         body: Center(
-          child: Text(
-              'Action: Call Rust `greet("Tom")`\nResult: `${testBindings(name: "Tom")}`'),
+          child: FutureBuilder<SearchEngine>(
+              future: SearchEngine.newInstance(
+                  path: "C:\\dev\\tantivy\\playground"),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Text("success: ${snapshot.data!.runtimeType}");
+                }
+                if (snapshot.hasError) {
+                  return Text('error: ${snapshot.error}');
+                }
+                return Text('loading index...');
+              }),
         ),
       ),
     );
