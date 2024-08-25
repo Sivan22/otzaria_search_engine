@@ -8,9 +8,10 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tantivy::collector::TopDocs;
+use tantivy::directory::MmapDirectory;
 use tantivy::query::{Query, QueryParser, TermQuery};
-use tantivy::schema::*;
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
+use tantivy::{schema::*, Directory};
 
 pub struct SearchEngine {
     path: String,
@@ -32,7 +33,8 @@ impl SearchEngine {
         let isPdf = schema_builder.add_bool_field("isPdf", STORED);
         let file_path = schema_builder.add_text_field("filePath", TEXT | STORED);
         let schema = schema_builder.build();
-        let index = Index::open_or_create(path, schema.clone());
+        let mmap_directory = MmapDirectory::open(path).expect("unable to open mmap directory");
+        let index = Index::open_or_create(mmap_directory, schema.clone());
         let index = index.expect("Failed to create index").clone();
         let index_reader = index.reader().expect("Failed to create index reader");
         let index_writer = index
