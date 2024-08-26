@@ -92,7 +92,7 @@ abstract class RustLibApi extends BaseApi {
   Future<SearchEngine> crateApiSearchEngineSearchEngineNew(
       {required String path});
 
-  Future<List<String>> crateApiSearchEngineSearchEngineSearch(
+  Future<List<SearchResult>> crateApiSearchEngineSearchEngineSearch(
       {required SearchEngine that,
       required String query,
       required List<String> books,
@@ -219,7 +219,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<List<String>> crateApiSearchEngineSearchEngineSearch(
+  Future<List<SearchResult>> crateApiSearchEngineSearchEngineSearch(
       {required SearchEngine that,
       required String query,
       required List<String> books,
@@ -236,7 +236,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             funcId: 4, port: port_);
       },
       codec: SseCodec(
-        decodeSuccessData: sse_decode_list_String,
+        decodeSuccessData: sse_decode_list_search_result,
         decodeErrorData: sse_decode_AnyhowException,
       ),
       constMeta: kCrateApiSearchEngineSearchEngineSearchConstMeta,
@@ -338,6 +338,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<SearchResult> dco_decode_list_search_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_search_result).toList();
+  }
+
+  @protected
+  SearchResult dco_decode_search_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return SearchResult(
+      title: dco_decode_String(arr[0]),
+      text: dco_decode_String(arr[1]),
+      id: dco_decode_u_64(arr[2]),
+      segment: dco_decode_u_64(arr[3]),
+      isPdf: dco_decode_bool(arr[4]),
+      filePath: dco_decode_String(arr[5]),
+    );
+  }
+
+  @protected
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -431,6 +453,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<SearchResult> sse_decode_list_search_result(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SearchResult>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_search_result(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  SearchResult sse_decode_search_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_String(deserializer);
+    var var_text = sse_decode_String(deserializer);
+    var var_id = sse_decode_u_64(deserializer);
+    var var_segment = sse_decode_u_64(deserializer);
+    var var_isPdf = sse_decode_bool(deserializer);
+    var var_filePath = sse_decode_String(deserializer);
+    return SearchResult(
+        title: var_title,
+        text: var_text,
+        id: var_id,
+        segment: var_segment,
+        isPdf: var_isPdf,
+        filePath: var_filePath);
   }
 
   @protected
@@ -535,6 +588,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_search_result(
+      List<SearchResult> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_search_result(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_search_result(SearchResult self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.text, serializer);
+    sse_encode_u_64(self.id, serializer);
+    sse_encode_u_64(self.segment, serializer);
+    sse_encode_bool(self.isPdf, serializer);
+    sse_encode_String(self.filePath, serializer);
+  }
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
@@ -610,7 +684,7 @@ class SearchEngineImpl extends RustOpaque implements SearchEngine {
         that: this,
       );
 
-  Future<List<String>> search(
+  Future<List<SearchResult>> search(
           {required String query,
           required List<String> books,
           required int limit}) =>

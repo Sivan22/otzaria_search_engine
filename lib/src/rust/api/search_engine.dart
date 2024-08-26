@@ -25,6 +25,45 @@ abstract class SearchEngine implements RustOpaqueInterface {
   static Future<SearchEngine> newInstance({required String path}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineNew(path: path);
 
-  Future<List<String>> search(
+  Future<List<SearchResult>> search(
       {required String query, required List<String> books, required int limit});
+}
+
+class SearchResult {
+  final String title;
+  final String text;
+  final BigInt id;
+  final BigInt segment;
+  final bool isPdf;
+  final String filePath;
+
+  const SearchResult({
+    required this.title,
+    required this.text,
+    required this.id,
+    required this.segment,
+    required this.isPdf,
+    required this.filePath,
+  });
+
+  @override
+  int get hashCode =>
+      title.hashCode ^
+      text.hashCode ^
+      id.hashCode ^
+      segment.hashCode ^
+      isPdf.hashCode ^
+      filePath.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchResult &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          text == other.text &&
+          id == other.id &&
+          segment == other.segment &&
+          isPdf == other.isPdf &&
+          filePath == other.filePath;
 }

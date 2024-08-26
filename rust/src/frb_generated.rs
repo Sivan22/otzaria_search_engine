@@ -75,8 +75,8 @@ fn wire__crate__api__search_engine__SearchEngine_add_document_impl(
             let api__title = <String>::sse_decode(&mut deserializer);
             let api__text = <String>::sse_decode(&mut deserializer);
             let api__segment = <u64>::sse_decode(&mut deserializer);
-            let api__isPdf = <bool>::sse_decode(&mut deserializer);
-            let api__filePath = <String>::sse_decode(&mut deserializer);
+            let api__is_pdf = <bool>::sse_decode(&mut deserializer);
+            let api__file_path = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
@@ -101,8 +101,8 @@ fn wire__crate__api__search_engine__SearchEngine_add_document_impl(
                             &api__title,
                             &api__text,
                             api__segment,
-                            api__isPdf,
-                            &api__filePath,
+                            api__is_pdf,
+                            &api__file_path,
                         )?;
                         Ok(output_ok)
                     })(),
@@ -364,6 +364,40 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Vec<crate::api::search_engine::SearchResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::search_engine::SearchResult>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for crate::api::search_engine::SearchResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_text = <String>::sse_decode(deserializer);
+        let mut var_id = <u64>::sse_decode(deserializer);
+        let mut var_segment = <u64>::sse_decode(deserializer);
+        let mut var_isPdf = <bool>::sse_decode(deserializer);
+        let mut var_filePath = <String>::sse_decode(deserializer);
+        return crate::api::search_engine::SearchResult {
+            title: var_title,
+            text: var_text,
+            id: var_id,
+            segment: var_segment,
+            is_pdf: var_isPdf,
+            file_path: var_filePath,
+        };
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -471,6 +505,32 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<SearchEngine>> for SearchEngin
     }
 }
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::search_engine::SearchResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.title.into_into_dart().into_dart(),
+            self.text.into_into_dart().into_dart(),
+            self.id.into_into_dart().into_dart(),
+            self.segment.into_into_dart().into_dart(),
+            self.is_pdf.into_into_dart().into_dart(),
+            self.file_path.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::search_engine::SearchResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::search_engine::SearchResult>
+    for crate::api::search_engine::SearchResult
+{
+    fn into_into_dart(self) -> crate::api::search_engine::SearchResult {
+        self
+    }
+}
+
 impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -527,6 +587,28 @@ impl SseEncode for Vec<u8> {
         for item in self {
             <u8>::sse_encode(item, serializer);
         }
+    }
+}
+
+impl SseEncode for Vec<crate::api::search_engine::SearchResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::search_engine::SearchResult>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for crate::api::search_engine::SearchResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.text, serializer);
+        <u64>::sse_encode(self.id, serializer);
+        <u64>::sse_encode(self.segment, serializer);
+        <bool>::sse_encode(self.is_pdf, serializer);
+        <String>::sse_encode(self.file_path, serializer);
     }
 }
 
