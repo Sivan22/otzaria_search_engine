@@ -2,6 +2,7 @@
 pub fn test_bindings(name: String) -> String {
     format!("Hello, {name}!")
 }
+use crate::frb_generated::StreamSink;
 use anyhow::{Error, Result};
 use futures::stream::{Stream, StreamExt};
 use log::debug;
@@ -12,11 +13,12 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use tantivy::collector::TopDocs;
 use tantivy::directory::MmapDirectory;
-use tantivy::query::{self, BooleanQuery, Occur, Query, QueryParser, TermQuery, TermSetQuery};
-use tantivy::{doc, tokenizer, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
+use tantivy::index::Index;
+use tantivy::query::Query;
+use tantivy::query::{self, BooleanQuery, Occur, QueryParser, TermQuery, TermSetQuery};
+use tantivy::{doc, tokenizer, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
 use tantivy::{schema::*, Directory};
 
-use crate::frb_generated::StreamSink;
 #[derive(Clone)]
 pub struct SearchResult {
     pub title: String,
@@ -108,7 +110,7 @@ impl SearchEngine {
         index: &Index,
         search_term: &str,
         book_titles: &[String],
-    ) -> Result<Box<dyn tantivy::query::Query>> {
+    ) -> Result<Box<dyn Query>> {
         let schema = index.schema();
         let text_field = schema.get_field("text").unwrap();
         let title_field = schema.get_field("title").unwrap();
@@ -126,14 +128,8 @@ impl SearchEngine {
 
         // Combine the text search and title filter
         let bool_query = BooleanQuery::new(vec![
-            (
-                Occur::Must,
-                Box::new(text_query) as Box<dyn tantivy::query::Query>,
-            ),
-            (
-                Occur::Must,
-                Box::new(title_filter) as Box<dyn tantivy::query::Query>,
-            ),
+            (Occur::Must, Box::new(text_query) as Box<dyn Query>),
+            (Occur::Must, Box::new(title_filter) as Box<dyn Query>),
         ]);
         Ok(Box::new(bool_query))
     }
@@ -149,10 +145,7 @@ impl SearchEngine {
         let query = Self::create_search_query(index, query, books).unwrap();
         let searcher = index.reader().unwrap().searcher();
         let top_docs = searcher
-            .search(
-                &query,
-                &tantivy::collector::TopDocs::with_limit(limit as usize),
-            )
+            .search(&query, &TopDocs::with_limit(limit as usize))
             .unwrap();
         let mut results = Vec::<SearchResult>::new();
         let title_field = schema.get_field("title").unwrap();
@@ -234,10 +227,7 @@ impl SearchEngine {
         let query = Self::create_search_query(index, query, books).unwrap();
         let searcher = index.reader().unwrap().searcher();
         let top_docs = searcher
-            .search(
-                &query,
-                &tantivy::collector::TopDocs::with_limit(limit as usize),
-            )
+            .search(&query, &TopDocs::with_limit(limit as usize))
             .unwrap();
         let mut results = Vec::<SearchResult>::new();
         let title_field = schema.get_field("title").unwrap();
