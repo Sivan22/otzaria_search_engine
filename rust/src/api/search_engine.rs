@@ -17,7 +17,7 @@ use tantivy::{doc, tokenizer, Index, IndexReader, IndexWriter, ReloadPolicy, Sco
 use tantivy::{schema::*, Directory};
 
 use crate::frb_generated::StreamSink;
-
+#[derive(Clone)]
 pub struct SearchResult {
     pub title: String,
     pub text: String,
@@ -301,7 +301,7 @@ impl SearchEngine {
                         file_path,
                     };
                     results.push(result);
-                    sink.add(results);
+                    sink.add(results.clone());
                 }
                 Err(_) => continue,
             }

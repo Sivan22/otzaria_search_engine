@@ -6,10 +6,16 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `create_search_query`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
 
 String testBindings({required String name}) =>
     RustLib.instance.api.crateApiSearchEngineTestBindings(name: name);
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Box < Query >>>
+abstract class BoxQuery implements RustOpaqueInterface {}
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Index>>
+abstract class Index implements RustOpaqueInterface {}
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SearchEngine>>
 abstract class SearchEngine implements RustOpaqueInterface {
@@ -23,6 +29,13 @@ abstract class SearchEngine implements RustOpaqueInterface {
 
   Future<void> commit();
 
+  static Future<BoxQuery> createSearchQuery(
+          {required Index index,
+          required String searchTerm,
+          required List<String> bookTitles}) =>
+      RustLib.instance.api.crateApiSearchEngineSearchEngineCreateSearchQuery(
+          index: index, searchTerm: searchTerm, bookTitles: bookTitles);
+
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
   static Future<SearchEngine> newInstance({required String path}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineNew(path: path);
@@ -30,13 +43,9 @@ abstract class SearchEngine implements RustOpaqueInterface {
   Future<List<SearchResult>> search(
       {required String query, required List<String> books, required int limit});
 
-  StreamItemResultSearchResultErrorError searchStream(
+  Stream<List<SearchResult>> searchStream(
       {required String query, required List<String> books, required int limit});
 }
-
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Stream < Item = Result < SearchResult > , Error = Error >>>
-abstract class StreamItemResultSearchResultErrorError
-    implements RustOpaqueInterface {}
 
 class SearchResult {
   final String title;
