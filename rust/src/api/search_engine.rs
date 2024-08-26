@@ -16,6 +16,8 @@ use tantivy::query::{self, BooleanQuery, Occur, Query, QueryParser, TermQuery, T
 use tantivy::{doc, tokenizer, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
 use tantivy::{schema::*, Directory};
 
+use crate::frb_generated::StreamSink;
+
 pub struct SearchResult {
     pub title: String,
     pub text: String,
@@ -102,7 +104,7 @@ impl SearchEngine {
         self.index_writer.commit()?;
         Ok(())
     }
-    fn create_search_query(
+    pub fn create_search_query(
         index: &Index,
         search_term: &str,
         book_titles: &[String],
@@ -220,32 +222,34 @@ impl SearchEngine {
         }
         Ok(results)
     }
-
-    pub fn search_stream<'a>(
-        &'a mut self,
-        query: &'a str,
-        books: &'a Vec<String>,
+    pub fn search_stream(
+        &mut self,
+        query: &str,
+        sink: StreamSink<Vec<SearchResult>>,
+        books: &Vec<String>,
         limit: u32,
-    ) -> Pin<Box<dyn Stream<Item = Result<SearchResult>> + 'a>> {
-        Box::pin(async_stream::try_stream! {
-            let index = &self.index;
-            let schema = &self.schema;
-            let query = Self::create_search_query(index, query, books)?;
-            let searcher = index.reader()?.searcher();
-            let top_docs = searcher.search(
+    ) -> Result<()> {
+        let index = &self.index;
+        let schema = &self.schema;
+        let query = Self::create_search_query(index, query, books).unwrap();
+        let searcher = index.reader().unwrap().searcher();
+        let top_docs = searcher
+            .search(
                 &query,
                 &tantivy::collector::TopDocs::with_limit(limit as usize),
-            )?;
+            )
+            .unwrap();
+        let mut results = Vec::<SearchResult>::new();
+        let title_field = schema.get_field("title").unwrap();
+        let text_field = schema.get_field("text").unwrap();
+        let id_field = schema.get_field("id").unwrap();
+        let segment_field = schema.get_field("segment").unwrap();
+        let is_pdf_field = schema.get_field("isPdf").unwrap();
+        let file_path_field = schema.get_field("filePath").unwrap();
 
-            let title_field = schema.get_field("title").unwrap();
-            let text_field = schema.get_field("text").unwrap();
-            let id_field = schema.get_field("id").unwrap();
-            let segment_field = schema.get_field("segment").unwrap();
-            let is_pdf_field = schema.get_field("isPdf").unwrap();
-            let file_path_field = schema.get_field("filePath").unwrap();
-
-            for (_score, doc_address) in top_docs {
-                if let Ok(retrieved_doc) = searcher.doc::<TantivyDocument>(doc_address) {
+        for (_score, doc_address) in top_docs {
+            match searcher.doc::<TantivyDocument>(doc_address) {
+                Ok(retrieved_doc) => {
                     let title = retrieved_doc
                         .get_first(title_field)
                         .and_then(|v| match v {
@@ -296,9 +300,12 @@ impl SearchEngine {
                         is_pdf,
                         file_path,
                     };
-                    yield result;
+                    results.push(result);
+                    sink.add(results);
                 }
+                Err(_) => continue,
             }
-        })
+        }
+        Ok(())
     }
 }

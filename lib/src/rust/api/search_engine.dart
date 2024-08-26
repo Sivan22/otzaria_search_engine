@@ -7,7 +7,6 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `create_search_query`
-// These functions are ignored because they have generic arguments: `search_stream`
 
 String testBindings({required String name}) =>
     RustLib.instance.api.crateApiSearchEngineTestBindings(name: name);
@@ -30,7 +29,14 @@ abstract class SearchEngine implements RustOpaqueInterface {
 
   Future<List<SearchResult>> search(
       {required String query, required List<String> books, required int limit});
+
+  StreamItemResultSearchResultErrorError searchStream(
+      {required String query, required List<String> books, required int limit});
 }
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Stream < Item = Result < SearchResult > , Error = Error >>>
+abstract class StreamItemResultSearchResultErrorError
+    implements RustOpaqueInterface {}
 
 class SearchResult {
   final String title;

@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.3.0';
 
   @override
-  int get rustContentHash => -1557135338;
+  int get rustContentHash => -1218751200;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -98,6 +98,13 @@ abstract class RustLibApi extends BaseApi {
       required List<String> books,
       required int limit});
 
+  StreamItemResultSearchResultErrorError
+      crateApiSearchEngineSearchEngineSearchStream(
+          {required SearchEngine that,
+          required String query,
+          required List<String> books,
+          required int limit});
+
   String crateApiSearchEngineTestBindings({required String name});
 
   RustArcIncrementStrongCountFnType
@@ -107,6 +114,15 @@ abstract class RustLibApi extends BaseApi {
       get rust_arc_decrement_strong_count_SearchEngine;
 
   CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_SearchEnginePtr;
+
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_StreamItemResultSearchResultErrorError;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_StreamItemResultSearchResultErrorError;
+
+  CrossPlatformFinalizerArg
+      get rust_arc_decrement_strong_count_StreamItemResultSearchResultErrorErrorPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -252,12 +268,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  StreamItemResultSearchResultErrorError
+      crateApiSearchEngineSearchEngineSearchStream(
+          {required SearchEngine that,
+          required String query,
+          required List<String> books,
+          required int limit}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchEngine(
+            that, serializer);
+        sse_encode_String(query, serializer);
+        sse_encode_list_String(books, serializer);
+        sse_encode_u_32(limit, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData:
+            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiSearchEngineSearchEngineSearchStreamConstMeta,
+      argValues: [that, query, books, limit],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSearchEngineSearchEngineSearchStreamConstMeta =>
+      const TaskConstMeta(
+        debugName: "SearchEngine_search_stream",
+        argNames: ["that", "query", "books", "limit"],
+      );
+
+  @override
   String crateApiSearchEngineTestBindings({required String name}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(name, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -283,6 +333,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       get rust_arc_decrement_strong_count_SearchEngine => wire
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchEngine;
 
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_StreamItemResultSearchResultErrorError =>
+          wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_StreamItemResultSearchResultErrorError =>
+          wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError;
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -295,6 +353,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return SearchEngineImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  StreamItemResultSearchResultErrorError
+      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return StreamItemResultSearchResultErrorErrorImpl.frbInternalDcoDecode(
+        raw as List<dynamic>);
   }
 
   @protected
@@ -311,6 +378,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return SearchEngineImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  StreamItemResultSearchResultErrorError
+      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return StreamItemResultSearchResultErrorErrorImpl.frbInternalDcoDecode(
+        raw as List<dynamic>);
   }
 
   @protected
@@ -406,6 +482,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  StreamItemResultSearchResultErrorError
+      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return StreamItemResultSearchResultErrorErrorImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   SearchEngine
       sse_decode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchEngine(
           SseDeserializer deserializer) {
@@ -420,6 +505,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return SearchEngineImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  StreamItemResultSearchResultErrorError
+      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return StreamItemResultSearchResultErrorErrorImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -540,6 +634,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          StreamItemResultSearchResultErrorError self,
+          SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as StreamItemResultSearchResultErrorErrorImpl)
+            .frbInternalSseEncode(move: true),
+        serializer);
+  }
+
+  @protected
+  void
       sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchEngine(
           SearchEngine self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -555,6 +661,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as SearchEngineImpl).frbInternalSseEncode(move: null),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamItemResultSearchResultErrorError(
+          StreamItemResultSearchResultErrorError self,
+          SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as StreamItemResultSearchResultErrorErrorImpl)
+            .frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -690,4 +808,34 @@ class SearchEngineImpl extends RustOpaque implements SearchEngine {
           required int limit}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineSearch(
           that: this, query: query, books: books, limit: limit);
+
+  StreamItemResultSearchResultErrorError searchStream(
+          {required String query,
+          required List<String> books,
+          required int limit}) =>
+      RustLib.instance.api.crateApiSearchEngineSearchEngineSearchStream(
+          that: this, query: query, books: books, limit: limit);
+}
+
+@sealed
+class StreamItemResultSearchResultErrorErrorImpl extends RustOpaque
+    implements StreamItemResultSearchResultErrorError {
+  // Not to be used by end users
+  StreamItemResultSearchResultErrorErrorImpl.frbInternalDcoDecode(
+      List<dynamic> wire)
+      : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  StreamItemResultSearchResultErrorErrorImpl.frbInternalSseDecode(
+      BigInt ptr, int externalSizeOnNative)
+      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount: RustLib.instance.api
+        .rust_arc_increment_strong_count_StreamItemResultSearchResultErrorError,
+    rustArcDecrementStrongCount: RustLib.instance.api
+        .rust_arc_decrement_strong_count_StreamItemResultSearchResultErrorError,
+    rustArcDecrementStrongCountPtr: RustLib.instance.api
+        .rust_arc_decrement_strong_count_StreamItemResultSearchResultErrorErrorPtr,
+  );
 }
