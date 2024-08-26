@@ -27,14 +27,16 @@ impl SearchEngine {
         debug!("new path={}", path,);
         let schema_builder = Schema::builder();
         let mut schema_builder = Schema::builder();
-        let text = schema_builder.add_text_field("text", TEXT | STORED);
+        let text = schema_builder.add_text_field("text", TEXT | STORED | FAST);
         let title = schema_builder.add_text_field(
             "title",
-            TextOptions::default().set_indexing_options(
-                TextFieldIndexing::default()
-                    .set_tokenizer("raw")
-                    .set_fieldnorms(false),
-            ),
+            TextOptions::default()
+                .set_indexing_options(
+                    TextFieldIndexing::default()
+                        .set_tokenizer("raw")
+                        .set_fieldnorms(true),
+                )
+                .set_stored(),
         );
         let id = schema_builder.add_u64_field("id", STORED);
         let segment = schema_builder.add_u64_field("segment", STORED);
@@ -82,9 +84,14 @@ impl SearchEngine {
         isPdf => _isPdf,
         file_path => _filePath
         ))?;
+
+        Ok(())
+    }
+    pub fn commit(&mut self) -> Result<()> {
         self.index_writer.commit()?;
         Ok(())
     }
+
     pub fn search(&mut self, query: &str, books: &Vec<String>, limit: u32) -> Result<Vec<String>> {
         fn create_search_query(
             index: &Index,

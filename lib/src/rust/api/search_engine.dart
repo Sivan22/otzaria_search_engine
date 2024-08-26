@@ -19,6 +19,8 @@ abstract class SearchEngine implements RustOpaqueInterface {
       required bool isPdf,
       required String filePath});
 
+  Future<void> commit();
+
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
   static Future<SearchEngine> newInstance({required String path}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineNew(path: path);

@@ -66,11 +66,11 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.3.0';
 
   @override
-  int get rustContentHash => -413561937;
+  int get rustContentHash => -1557135338;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
-    stem: 'rust_lib_otzaria_search_engine',
+    stem: 'search_engine',
     ioDirectory: 'rust/target/release/',
     webPrefix: 'pkg/',
   );
@@ -85,6 +85,9 @@ abstract class RustLibApi extends BaseApi {
       required BigInt segment,
       required bool isPdf,
       required String filePath});
+
+  Future<void> crateApiSearchEngineSearchEngineCommit(
+      {required SearchEngine that});
 
   Future<SearchEngine> crateApiSearchEngineSearchEngineNew(
       {required String path});
@@ -162,6 +165,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiSearchEngineSearchEngineCommit(
+      {required SearchEngine that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSearchEngine(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 2, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: sse_decode_AnyhowException,
+      ),
+      constMeta: kCrateApiSearchEngineSearchEngineCommitConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSearchEngineSearchEngineCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "SearchEngine_commit",
+        argNames: ["that"],
+      );
+
+  @override
   Future<SearchEngine> crateApiSearchEngineSearchEngineNew(
       {required String path}) {
     return handler.executeNormal(NormalTask(
@@ -169,7 +199,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(path, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 2, port: port_);
+            funcId: 3, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -203,7 +233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_list_String(books, serializer);
         sse_encode_u_32(limit, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 3, port: port_);
+            funcId: 4, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_String,
@@ -227,7 +257,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(name, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -574,6 +604,11 @@ class SearchEngineImpl extends RustOpaque implements SearchEngine {
           segment: segment,
           isPdf: isPdf,
           filePath: filePath);
+
+  Future<void> commit() =>
+      RustLib.instance.api.crateApiSearchEngineSearchEngineCommit(
+        that: this,
+      );
 
   Future<List<String>> search(
           {required String query,

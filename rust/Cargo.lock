@@ -1026,23 +1026,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust_lib_otzaria_search_engine"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "flutter_rust_bridge",
- "htmlescape",
- "jieba-rs",
- "log",
- "once_cell",
- "serde",
- "serde_derive",
- "serde_json",
- "tantivy",
- "tokio 0.2.25",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1072,6 +1055,23 @@ name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
+
+[[package]]
+name = "search_engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "flutter_rust_bridge",
+ "htmlescape",
+ "jieba-rs",
+ "log",
+ "once_cell",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tantivy",
+ "tokio 0.2.25",
+]
 
 [[package]]
 name = "serde"

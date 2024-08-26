@@ -1,5 +1,5 @@
 [package]
-name = "rust_lib_otzaria_search_engine"
+name = "search_engine"
 version = "0.1.0"
 edition = "2021"
 
