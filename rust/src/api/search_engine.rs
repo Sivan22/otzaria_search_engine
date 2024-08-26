@@ -14,6 +14,15 @@ use tantivy::query::{self, BooleanQuery, Occur, Query, QueryParser, TermQuery, T
 use tantivy::{doc, tokenizer, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
 use tantivy::{schema::*, Directory};
 
+pub struct SearchResult {
+    pub title: String,
+    pub text: String,
+    pub id: u64,
+    pub segment: u64,
+    pub is_pdf: bool,
+    pub file_path: String,
+}
+
 pub struct SearchEngine {
     path: String,
     schema: Schema,
@@ -34,7 +43,7 @@ impl SearchEngine {
                 .set_indexing_options(
                     TextFieldIndexing::default()
                         .set_tokenizer("raw")
-                        .set_fieldnorms(true),
+                        .set_fieldnorms(false),
                 )
                 .set_stored(),
         );
@@ -66,14 +75,14 @@ impl SearchEngine {
         _title: &str,
         _text: &str,
         _segment: u64,
-        _isPdf: bool,
-        _filePath: &str,
+        _is_pdf: bool,
+        _file_path: &str,
     ) -> Result<()> {
         let title = self.schema.get_field("title").unwrap();
         let text = self.schema.get_field("text").unwrap();
         let id = self.schema.get_field("id").unwrap();
         let segment = self.schema.get_field("segment").unwrap();
-        let isPdf = self.schema.get_field("isPdf").unwrap();
+        let is_pdf = self.schema.get_field("isPdf").unwrap();
         let file_path = self.schema.get_field("filePath").unwrap();
 
         self.index_writer.add_document(doc!(
@@ -81,8 +90,8 @@ impl SearchEngine {
         text => _text,
         id => _id,
         segment => _segment,
-        isPdf => _isPdf,
-        file_path => _filePath
+        is_pdf => _is_pdf,
+        file_path => _file_path
         ))?;
 
         Ok(())
@@ -92,7 +101,12 @@ impl SearchEngine {
         Ok(())
     }
 
-    pub fn search(&mut self, query: &str, books: &Vec<String>, limit: u32) -> Result<Vec<String>> {
+    pub fn search(
+        &mut self,
+        query: &str,
+        books: &Vec<String>,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
         fn create_search_query(
             index: &Index,
             search_term: &str,
@@ -114,7 +128,7 @@ impl SearchEngine {
             let title_filter = TermSetQuery::new(title_terms);
 
             // Combine the text search and title filter
-            let mut bool_query = BooleanQuery::new(vec![
+            let bool_query = BooleanQuery::new(vec![
                 (
                     Occur::Must,
                     Box::new(text_query) as Box<dyn tantivy::query::Query>,
@@ -137,16 +151,72 @@ impl SearchEngine {
                 &tantivy::collector::TopDocs::with_limit(limit as usize),
             )
             .unwrap();
-        let mut results = Vec::<String>::new();
+        let mut results = Vec::<SearchResult>::new();
+        let title_field = schema.get_field("title").unwrap();
+        let text_field = schema.get_field("text").unwrap();
+        let id_field = schema.get_field("id").unwrap();
+        let segment_field = schema.get_field("segment").unwrap();
+        let is_pdf_field = schema.get_field("isPdf").unwrap();
+        let file_path_field = schema.get_field("filePath").unwrap();
 
         for (_score, doc_address) in top_docs {
-            // Retrieve the actual content of documents given its `doc_address`.
-            let retrieved_doc = searcher
-                .doc::<TantivyDocument>(doc_address)
-                .expect("cannot find document");
-            results.push(retrieved_doc.to_json(&schema));
+            match searcher.doc::<TantivyDocument>(doc_address) {
+                Ok(retrieved_doc) => {
+                    let title = retrieved_doc
+                        .get_first(title_field)
+                        .and_then(|v| match v {
+                            OwnedValue::Str(s) => Some(s.clone()),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let text = retrieved_doc
+                        .get_first(text_field)
+                        .and_then(|v| match v {
+                            OwnedValue::Str(s) => Some(s.clone()),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let id = retrieved_doc
+                        .get_first(id_field)
+                        .and_then(|v| match v {
+                            OwnedValue::U64(y) => Some(*y),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let segment = retrieved_doc
+                        .get_first(segment_field)
+                        .and_then(|v| match v {
+                            OwnedValue::U64(y) => Some(*y),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let is_pdf = retrieved_doc
+                        .get_first(is_pdf_field)
+                        .and_then(|v| match v {
+                            OwnedValue::Bool(y) => Some(*y),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let file_path = retrieved_doc
+                        .get_first(file_path_field)
+                        .and_then(|v| match v {
+                            OwnedValue::Str(s) => Some(s.clone()),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    let result = SearchResult {
+                        title,
+                        text,
+                        id,
+                        segment,
+                        is_pdf,
+                        file_path,
+                    };
+                    results.push(result);
+                }
+                Err(_) => continue,
+            }
         }
-
         Ok(results)
     }
 }
