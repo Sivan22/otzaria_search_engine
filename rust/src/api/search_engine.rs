@@ -14,9 +14,12 @@ use std::sync::{Arc, Mutex};
 use tantivy::collector::TopDocs;
 use tantivy::directory::MmapDirectory;
 use tantivy::index::Index;
-use tantivy::query::Query;
 use tantivy::query::{self, BooleanQuery, Occur, QueryParser, TermQuery, TermSetQuery};
-use tantivy::{doc, tokenizer, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher};
+use tantivy::query::{PhraseQuery, Query};
+use tantivy::{
+    doc, tokenizer, DocAddress, IndexReader, IndexWriter, Order, ReloadPolicy, Score, Searcher,
+    SnippetGenerator,
+};
 use tantivy::{schema::*, Directory};
 
 #[derive(Clone)]
@@ -53,7 +56,7 @@ impl SearchEngine {
                 )
                 .set_stored(),
         );
-        let id = schema_builder.add_u64_field("id", STORED);
+        let id = schema_builder.add_u64_field("id", STORED | FAST);
         let segment = schema_builder.add_u64_field("segment", STORED);
         let isPdf = schema_builder.add_bool_field("isPdf", STORED);
         let file_path = schema_builder.add_text_field("filePath", TEXT | STORED);
@@ -110,14 +113,30 @@ impl SearchEngine {
         index: &Index,
         search_term: &str,
         book_titles: &[String],
+        fuzzy: bool,
     ) -> Result<Box<dyn Query>> {
         let schema = index.schema();
         let text_field = schema.get_field("text").unwrap();
         let title_field = schema.get_field("title").unwrap();
 
         // Create the main text search query
-        let text_query = QueryParser::for_index(&index, vec![text_field]);
-        let text_query = text_query.parse_query(search_term).unwrap();
+        let mut text_query: Box<dyn Query> = {
+            // in case of fuzzy search, use a query parser with fuzzy query
+            if fuzzy {
+                let mut text_query = QueryParser::for_index(&index, vec![text_field]);
+                text_query.set_conjunction_by_default();
+                text_query.set_field_fuzzy(text_field, false, 1, true);
+                let text_query = text_query.parse_query(search_term).unwrap();
+                Box::new(text_query) as Box<dyn Query>
+            // in case of exact search, use a term query
+            } else {
+                Box::new(
+                    QueryParser::for_index(&index, vec![text_field])
+                        .parse_query(search_term)
+                        .unwrap(),
+                ) as Box<dyn Query>
+            }
+        };
 
         // Create a TermSetQuery for exact matching of book titles
         let title_terms: Vec<Term> = book_titles
@@ -139,23 +158,45 @@ impl SearchEngine {
         query: &str,
         books: &Vec<String>,
         limit: u32,
+        fuzzy: bool,
     ) -> Result<Vec<SearchResult>> {
         let index = &self.index;
         let schema = &self.schema;
-        let query = Self::create_search_query(index, query, books).unwrap();
-        let searcher = index.reader().unwrap().searcher();
-        let top_docs = searcher
-            .search(&query, &TopDocs::with_limit(limit as usize))
-            .unwrap();
-        let mut results = Vec::<SearchResult>::new();
-        let title_field = schema.get_field("title").unwrap();
-        let text_field = schema.get_field("text").unwrap();
-        let id_field = schema.get_field("id").unwrap();
-        let segment_field = schema.get_field("segment").unwrap();
-        let is_pdf_field = schema.get_field("isPdf").unwrap();
-        let file_path_field = schema.get_field("filePath").unwrap();
+        let query = Self::create_search_query(index, query, books, fuzzy)?;
+        let searcher = index.reader()?.searcher();
 
-        for (_score, doc_address) in top_docs {
+        let mut results = Vec::<SearchResult>::new();
+        let title_field = schema.get_field("title")?;
+        let text_field = schema.get_field("text")?;
+        let id_field = schema.get_field("id")?;
+        let segment_field = schema.get_field("segment")?;
+        let is_pdf_field = schema.get_field("isPdf")?;
+        let file_path_field = schema.get_field("filePath")?;
+        let mut snippet_generator = SnippetGenerator::create(&searcher, &*query, text_field)?;
+        snippet_generator.set_max_num_chars(800);
+
+        let top_docs: Vec<DocAddress> = {
+            if fuzzy {
+                // sort by relevance
+                let collector_by_relanace = TopDocs::with_limit(limit as usize);
+                let top_docs_by_relevance = searcher.search(&query, &collector_by_relanace)?;
+                top_docs_by_relevance
+                    .into_iter()
+                    .map(|(score, doc_address)| (doc_address))
+                    .collect()
+            } else {
+                // sort by id (ascending)
+                let collector_by_id = TopDocs::with_limit(limit as usize)
+                    .order_by_fast_field::<u64>("id", Order::Asc);
+                let top_docs_by_id = searcher.search(&query, &collector_by_id).unwrap();
+                top_docs_by_id
+                    .into_iter()
+                    .map(|(id, doc_address)| (doc_address))
+                    .collect()
+            }
+        };
+
+        for doc_address in top_docs {
             match searcher.doc::<TantivyDocument>(doc_address) {
                 Ok(retrieved_doc) => {
                     let title = retrieved_doc
@@ -172,6 +213,8 @@ impl SearchEngine {
                             _ => None,
                         })
                         .unwrap_or_default();
+                    let mut snippet = snippet_generator.snippet(&text);
+                    snippet.set_snippet_prefix_postfix("<font color=red>", "</font>");
                     let id = retrieved_doc
                         .get_first(id_field)
                         .and_then(|v| match v {
@@ -200,6 +243,14 @@ impl SearchEngine {
                             _ => None,
                         })
                         .unwrap_or_default();
+                    let text = {
+                        if fuzzy {
+                            text
+                        } else {
+                            snippet.to_html()
+                        }
+                    };
+
                     let result = SearchResult {
                         title,
                         text,
@@ -221,10 +272,11 @@ impl SearchEngine {
         sink: StreamSink<Vec<SearchResult>>,
         books: &Vec<String>,
         limit: u32,
+        fuzzy: bool,
     ) -> Result<()> {
         let index = &self.index;
         let schema = &self.schema;
-        let query = Self::create_search_query(index, query, books).unwrap();
+        let query = Self::create_search_query(index, query, books, fuzzy).unwrap();
         let searcher = index.reader().unwrap().searcher();
         let top_docs = searcher
             .search(&query, &TopDocs::with_limit(limit as usize))
@@ -282,6 +334,7 @@ impl SearchEngine {
                             _ => None,
                         })
                         .unwrap_or_default();
+
                     let result = SearchResult {
                         title,
                         text,

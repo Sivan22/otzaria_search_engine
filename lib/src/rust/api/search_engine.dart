@@ -32,19 +32,29 @@ abstract class SearchEngine implements RustOpaqueInterface {
   static Future<BoxQuery> createSearchQuery(
           {required Index index,
           required String searchTerm,
-          required List<String> bookTitles}) =>
+          required List<String> bookTitles,
+          required bool fuzzy}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineCreateSearchQuery(
-          index: index, searchTerm: searchTerm, bookTitles: bookTitles);
+          index: index,
+          searchTerm: searchTerm,
+          bookTitles: bookTitles,
+          fuzzy: fuzzy);
 
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
   static Future<SearchEngine> newInstance({required String path}) =>
       RustLib.instance.api.crateApiSearchEngineSearchEngineNew(path: path);
 
   Future<List<SearchResult>> search(
-      {required String query, required List<String> books, required int limit});
+      {required String query,
+      required List<String> books,
+      required int limit,
+      required bool fuzzy});
 
   Stream<List<SearchResult>> searchStream(
-      {required String query, required List<String> books, required int limit});
+      {required String query,
+      required List<String> books,
+      required int limit,
+      required bool fuzzy});
 }
 
 class SearchResult {
