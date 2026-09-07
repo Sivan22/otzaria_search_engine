@@ -116,7 +116,7 @@ jobs:
         run: flutter pub get
 
       - name: Install pinned FRB generator
-        run: cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+        run: cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 
       - name: Verify generated bindings are current
         shell: bash

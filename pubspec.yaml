@@ -10,9 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ה-runtime חייב להתאים בדיוק לצד ה-Rust ולקוד המחולל (2.12.0); כל גרסה
+  # ה-runtime חייב להתאים בדיוק לצד ה-Rust ולקוד המחולל (2.13.0); כל גרסה
   # אחרת נכשלת באתחול RustLib.
-  flutter_rust_bridge: "2.12.0"
+  flutter_rust_bridge: "2.13.0"
   plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
