@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.4 – 2026-09-08
+
+### Changed
+
+- **`optimize` compacts instead of collapsing.** It no longer merges every
+  segment into one: the segment count is bounded (`MAX_SEGMENTS_AFTER_OPTIMIZE`,
+  8) by merging only the smallest segments, plus any segment with more than 30%
+  deleted docs. Large healthy segments are left untouched, so an incremental
+  run that adds one book no longer rewrites the whole multi-GB index.
+- **`optimize` garbage-collects merged-away segment files.** GC runs again after
+  the reader reload releases them, so the index directory shrinks instead of
+  growing (tantivy’s post-merge GC saw them as still pinned by the old searcher).
+
 ## 0.8.3 – 2026-09-07 – flutter_rust_bridge 2.13.0
 
 ### Changed

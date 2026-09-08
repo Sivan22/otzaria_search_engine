@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tantivy::collector::{Collector, Count, FacetCollector, SegmentCollector, TopDocs};
 use tantivy::directory::MmapDirectory;
+use tantivy::index::{SegmentId, SegmentMeta};
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{
     AllQuery, BooleanQuery, BoostQuery, ConstScoreQuery, EmptyQuery, FuzzyTermQuery, Occur,
@@ -754,6 +755,10 @@ const DEFAULT_WRITER_HEAP_SIZE: usize = 300_000_000;
 // Economy indexing (see `set_economy_indexing`): the mobile budget — 3
 // threads with small arenas — applied on demand on desktop too.
 const ECONOMY_WRITER_HEAP_SIZE: usize = 50_000_000;
+/// Upper bound on searchable segments left behind by `optimize`.
+const MAX_SEGMENTS_AFTER_OPTIMIZE: usize = 8;
+/// A segment whose deleted-doc share exceeds this is compacted regardless of size.
+const OPTIMIZE_COMPACT_DELETE_RATIO: f64 = 0.3;
 const INDEX_METADATA_FILE_NAME: &str = "otzaria_index_meta.json";
 const INDEX_FORMAT: &str = "otzaria-search-index";
 // גרסה 3 (טרם פורסמה): המעבר ל-HebrewTokenizer (גרשיים/גרש נשמרים
@@ -3606,15 +3611,20 @@ impl SearchEngine {
 
     // ── Operational API ────────────────────────────────────────────────────────
 
-    /// Merge all segments into one. Run occasionally in the background after
-    /// many upserts/deletes to reclaim disk space and improve read performance.
-    /// Pending (uncommitted) changes are committed first, since only committed
-    /// segments participate in manual merge maintenance.
+    /// Compact the index without collapsing it. Pending changes are committed
+    /// first (only committed segments take part in manual merges); then the
+    /// searchable segments are trimmed to at most `MAX_SEGMENTS_AFTER_OPTIMIZE`
+    /// by merging the *smallest* ones together, and every segment whose
+    /// deleted-doc share exceeds `OPTIMIZE_COMPACT_DELETE_RATIO` joins that
+    /// merge so its space is reclaimed. Large healthy segments are never
+    /// rewritten — tantivy searches segments in parallel, so a single segment
+    /// buys nothing — which keeps the cost of an incremental run proportional
+    /// to what it added rather than to the size of the whole index.
     pub fn optimize(&mut self) -> Result<()> {
         let started = Instant::now();
         let before_count = self.index.searchable_segment_ids()?.len();
         debug!("optimize: before={before_count}");
-        if before_count <= 1 {
+        if before_count == 0 {
             debug!("optimize: skipped");
             return Ok(());
         }
@@ -3640,12 +3650,33 @@ impl SearchEngine {
 
         maintenance_result?;
         self.index_reader.reload()?;
+        self.collect_garbage_after_optimize();
         let after_count = self.index.searchable_segment_ids()?.len();
         info!(
             "optimize: {before_count} → {after_count} segments in {:?}",
             started.elapsed()
         );
         Ok(())
+    }
+
+    /// Tantivy's post-merge GC keeps merged-away segments while the old searcher
+    /// holds their metas/mmaps; run it again after `reload` released them.
+    fn collect_garbage_after_optimize(&mut self) {
+        let gc = match self.writer_mut() {
+            Ok(writer) => writer.garbage_collect_files().wait(),
+            Err(err) => {
+                warn!("optimize: writer unavailable for garbage collection: {err:#}");
+                return;
+            }
+        };
+        match gc {
+            Ok(result) => debug!(
+                "optimize: garbage collection deleted {} files ({} could not be deleted)",
+                result.deleted_files.len(),
+                result.failed_to_delete_files.len()
+            ),
+            Err(err) => warn!("optimize: garbage collection failed: {err}"),
+        }
     }
 
     pub fn get_document_count(&self) -> u64 {
@@ -5282,15 +5313,19 @@ impl SearchEngine {
     }
 
     fn optimize_committed_segments(&self) -> Result<()> {
-        let mut maintenance_writer = self.open_writer_no_merge()?;
-        let segment_ids = self.index.searchable_segment_ids()?;
-        debug!("optimize: merging {} segments", segment_ids.len());
-
-        let merge_result = if segment_ids.len() > 1 {
-            maintenance_writer.merge(&segment_ids).wait().map(|_| ())
-        } else {
-            Ok(())
+        let metas = self.index.searchable_segment_metas()?;
+        let Some(merge_ids) = select_segments_to_compact(&metas) else {
+            debug!("optimize: {} segments, nothing to compact", metas.len());
+            return Ok(());
         };
+        debug!(
+            "optimize: merging {} of {} segments",
+            merge_ids.len(),
+            metas.len()
+        );
+
+        let mut maintenance_writer = self.open_writer_no_merge()?;
+        let merge_result = maintenance_writer.merge(&merge_ids).wait().map(|_| ());
         let wait_result = maintenance_writer.wait_merging_threads();
 
         merge_result?;
@@ -8958,6 +8993,42 @@ impl SegmentCollector for BookFingerprintSegmentCollector {
     }
 }
 
+/// Segments `optimize` merges into one: every delete-heavy segment, plus the
+/// smallest others until the count fits the cap. `None` when nothing qualifies.
+fn select_segments_to_compact(metas: &[SegmentMeta]) -> Option<Vec<SegmentId>> {
+    let mut by_size: Vec<&SegmentMeta> = metas.iter().collect();
+    by_size.sort_by_key(|m| m.num_docs());
+
+    let mut chosen: Vec<SegmentId> = by_size
+        .iter()
+        .filter(|m| {
+            m.max_doc() > 0
+                && f64::from(m.num_deleted_docs()) / f64::from(m.max_doc())
+                    > OPTIMIZE_COMPACT_DELETE_RATIO
+        })
+        .map(|m| m.id())
+        .collect();
+
+    // Merging n segments leaves len - n + 1; the smallest go first so the big
+    // ones are naturally excluded.
+    let count_after = |chosen: usize| {
+        if chosen == 0 {
+            metas.len()
+        } else {
+            metas.len() - chosen + 1
+        }
+    };
+    for meta in &by_size {
+        if count_after(chosen.len()) <= MAX_SEGMENTS_AFTER_OPTIMIZE {
+            break;
+        }
+        if !chosen.contains(&meta.id()) {
+            chosen.push(meta.id());
+        }
+    }
+    (!chosen.is_empty()).then_some(chosen)
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -9889,7 +9960,7 @@ mod tests {
     }
 
     #[test]
-    fn bulk_indexing_skips_merges_and_optimize_still_collapses() {
+    fn bulk_indexing_skips_merges_and_optimize_bounds_segments() {
         let (mut engine, _dir) = make_engine();
         engine.set_bulk_indexing(true).unwrap();
         // כמה commit-ים ⇒ כמה סגמנטים; ב-bulk אין מיזוג רקע שמאחד אותם.
@@ -9901,8 +9972,147 @@ mod tests {
 
         engine.set_bulk_indexing(false).unwrap();
         engine.optimize().unwrap();
-        assert_eq!(engine.index.searchable_segment_ids().unwrap().len(), 1);
+        assert!(
+            engine.index.searchable_segment_ids().unwrap().len() <= MAX_SEGMENTS_AFTER_OPTIMIZE
+        );
         assert_eq!(engine.get_document_count(), 3);
+    }
+
+    /// כל commit מפזר מסמכים על כמה סגמנטים (thread לכל סגמנט); הבדיקות
+    /// שצריכות "סגמנט גדול אחד" מאחדות אותו כאן, מחוץ ל-optimize הנבדק.
+    fn collapse_to_one_segment(engine: &mut SearchEngine) {
+        let live = engine.take_writer().unwrap();
+        drop(live);
+        let mut writer = engine.open_writer_no_merge().unwrap();
+        let ids = engine.index.searchable_segment_ids().unwrap();
+        writer.merge(&ids).wait().unwrap();
+        writer.wait_merging_threads().unwrap();
+        engine.restore_writer().unwrap();
+        engine.index_reader.reload().unwrap();
+        assert_eq!(engine.index.searchable_segment_ids().unwrap().len(), 1);
+    }
+
+    fn count_hits(engine: &SearchEngine, word: &str) -> usize {
+        engine.count(vec![word.to_string()], &[], 0, 1).unwrap() as usize
+    }
+
+    #[test]
+    fn optimize_merges_smallest_segments_down_to_cap() {
+        let (mut engine, _dir) = make_engine();
+        // bulk נשאר פעיל גם ב-optimize — אחרת LogMergePolicy היה מאחד ברקע
+        // והבדיקה לא הייתה מודדת את optimize עצמו.
+        engine.set_bulk_indexing(true).unwrap();
+        let total = MAX_SEGMENTS_AFTER_OPTIMIZE as u64 + 4;
+        for i in 0..total {
+            add(&mut engine, i + 1, "שלום עולם", "/books/a.txt");
+            engine.commit().unwrap();
+        }
+        assert_eq!(
+            engine.index.searchable_segment_ids().unwrap().len(),
+            total as usize
+        );
+
+        engine.optimize().unwrap();
+        assert_eq!(
+            engine.index.searchable_segment_ids().unwrap().len(),
+            MAX_SEGMENTS_AFTER_OPTIMIZE
+        );
+        assert_eq!(engine.get_document_count(), total);
+        assert_eq!(count_hits(&engine, "שלום"), total as usize);
+    }
+
+    fn count_idx_files(dir: &TempDir) -> usize {
+        std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|e| e.as_ref().unwrap().path().extension() == Some("idx".as_ref()))
+            .count()
+    }
+
+    fn dir_size_bytes(dir: &TempDir) -> u64 {
+        std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().metadata().unwrap().len())
+            .sum()
+    }
+
+    #[test]
+    fn optimize_garbage_collects_merged_away_segment_files() {
+        let (mut engine, dir) = make_engine();
+        engine.set_bulk_indexing(true).unwrap();
+        let total = MAX_SEGMENTS_AFTER_OPTIMIZE as u64 + 4;
+        for i in 0..total {
+            add(&mut engine, i + 1, "שלום עולם", "/books/a.txt");
+            engine.commit().unwrap();
+        }
+        // Pin the pre-optimize segments the way a live search would.
+        engine.index_reader.reload().unwrap();
+        assert_eq!(count_idx_files(&dir), total as usize);
+        let size_before = dir_size_bytes(&dir);
+
+        engine.optimize().unwrap();
+        let searchable = engine.index.searchable_segment_ids().unwrap().len();
+        assert_eq!(searchable, MAX_SEGMENTS_AFTER_OPTIMIZE);
+        assert_eq!(
+            count_idx_files(&dir),
+            searchable,
+            "merged-away segment files must be garbage-collected"
+        );
+        assert!(
+            dir_size_bytes(&dir) <= size_before,
+            "index directory must not grow after optimize"
+        );
+    }
+
+    #[test]
+    fn optimize_leaves_large_segment_untouched_next_to_tiny_one() {
+        let (mut engine, _dir) = make_engine();
+        engine.set_bulk_indexing(true).unwrap();
+        for i in 0..500u64 {
+            add(&mut engine, i + 1, "בראשית ברא", "/books/big.txt");
+        }
+        engine.commit().unwrap();
+        collapse_to_one_segment(&mut engine);
+        let big_id = engine.index.searchable_segment_ids().unwrap()[0];
+
+        add(&mut engine, 1_000, "שלום עולם", "/books/small.txt");
+        engine.commit().unwrap();
+        assert_eq!(engine.index.searchable_segment_ids().unwrap().len(), 2);
+
+        engine.optimize().unwrap();
+        let ids = engine.index.searchable_segment_ids().unwrap();
+        assert_eq!(ids.len(), 2);
+        // הסגמנט הגדול לא נכתב מחדש — אותו SegmentId עדיין שם.
+        assert!(ids.contains(&big_id));
+        assert_eq!(engine.get_document_count(), 501);
+    }
+
+    #[test]
+    fn optimize_compacts_delete_heavy_segment() {
+        let (mut engine, _dir) = make_engine();
+        engine.set_bulk_indexing(true).unwrap();
+        for i in 0..20u64 {
+            add(&mut engine, i + 1, "בראשית ברא", "/books/gone.txt");
+        }
+        add(&mut engine, 100, "שלום עולם", "/books/kept.txt");
+        engine.commit().unwrap();
+        collapse_to_one_segment(&mut engine);
+        let heavy_id = engine.index.searchable_segment_ids().unwrap()[0];
+
+        engine
+            .delete_documents_by_file_path("/books/gone.txt")
+            .unwrap();
+        engine.commit().unwrap();
+        let metas = engine.index.searchable_segment_metas().unwrap();
+        assert_eq!(metas.len(), 1);
+        assert_eq!(metas[0].num_deleted_docs(), 20);
+
+        engine.optimize().unwrap();
+        let metas = engine.index.searchable_segment_metas().unwrap();
+        assert_eq!(metas.len(), 1);
+        assert_ne!(metas[0].id(), heavy_id);
+        assert_eq!(metas[0].num_deleted_docs(), 0);
+        assert_eq!(metas[0].num_docs(), 1);
+        assert_eq!(count_hits(&engine, "שלום"), 1);
     }
 
     #[test]
@@ -12055,8 +12265,8 @@ mod tests {
             "optimize should not increase segment count"
         );
         assert_eq!(
-            after, 1,
-            "after optimize there should be exactly one segment"
+            after, MAX_SEGMENTS_AFTER_OPTIMIZE as u32,
+            "optimize compacts the smallest segments down to the cap"
         );
         assert_eq!(engine.get_document_count(), 12);
     }
